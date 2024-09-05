@@ -28,6 +28,8 @@ if __name__ == '__main__':
 
     mempool = MemPool(args.mempool)
 
+    # TODO pokracovani
+
     block_transactions = [COINBASE_TRANSACTION] + mempool.valid_transactions
     
     transaction_hashes = [calculate_txid(COINBASE_TRANSACTION)] + [calculate_txid(json_transaction) for json_transaction in block_transactions[1:]]

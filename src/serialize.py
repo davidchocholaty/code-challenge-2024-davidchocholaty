@@ -1,3 +1,6 @@
+# The code in this file is inpired from the following source:
+# http://karpathy.github.io/2021/06/21/blockchain/
+
 def serialize_input(tx_input, override=None):
     serialized_input = []
     serialized_input += [bytes.fromhex(tx_input["txid"])[::-1]]  # Reversed txid
