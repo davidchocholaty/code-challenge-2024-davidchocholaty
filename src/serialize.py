@@ -1,19 +1,26 @@
+from src.constants import SIGHASH_ALL
+
 # The code in this file is inpired from the following source:
 # http://karpathy.github.io/2021/06/21/blockchain/
 
 def serialize_input(tx_input, override=None):
     serialized_input = []
     serialized_input += [bytes.fromhex(tx_input["txid"])[::-1]]  # Reversed txid
-    serialized_input += [tx_input["vout"].to_bytes(4, byteorder="little")]
+    serialized_input += [encode_int(tx_input["vout"], 4)]
 
     if override is None:
+        # None = just use the actual script
         serialized_input += [serialize_script(bytes.fromhex(tx_input["scriptsig"]))]
     elif override is True:
+        # True = override the script with the script_pubkey of the associated input
         serialized_input += [serialize_script(bytes.fromhex(tx_input["prevout"]["scriptpubkey"]))]
     elif override is False:
+        # False = override with an empty script
         serialized_input += [serialize_script(bytes.fromhex(""))]
+    else:
+        raise ValueError("script_override must be one of None|True|False")
 
-    serialized_input += [tx_input["sequence"].to_bytes(4, byteorder="little")]
+    serialized_input += [encode_int(tx_input["sequence"], 4)]
 
     return b''.join(serialized_input)
 
@@ -26,12 +33,17 @@ def serialize_script(script):
 def serialize_output(output):
     serialized_output = []
 
-    serialized_output += [output["value"].to_bytes(8, byteorder="little")]
+    serialized_output += [encode_int(output["value"], 8)]
     serialized_output += [serialize_script(bytes.fromhex(output["scriptpubkey"]))]
 
     return b''.join(serialized_output)
 
+def encode_int(i, nbytes, encoding='little'):
+    """ encode integer i into nbytes bytes using a given byte ordering """
+    return i.to_bytes(nbytes, encoding)
+
 def encode_varint(i):
+    """ encode a (possibly but rarely large) integer into bytes with a super simple compression scheme """
     if i < 0xfd:
         return bytes([i])
     elif i < 0x10000:
@@ -45,39 +57,39 @@ def encode_varint(i):
 
 def serialize_transaction(transaction, index=-1, sighash_type=1, segwit=False):
     # for now for p2pkh
-    message = []
-    message += [transaction["version"].to_bytes(4, byteorder="little")]
+    out = []
+    out += [encode_int(transaction["version"], 4)]
 
     if segwit:
-        message += [b'\x00\x01'] # segwit marker
+        out += [b'\x00\x01'] # segwit marker
 
     # inputs
-    message += [encode_varint(len(transaction["vin"]))]
+    out += [encode_varint(len(transaction["vin"]))]
 
     inputs = transaction["vin"]
-    outputs = transaction["vout"]    
+    outputs = transaction["vout"]
 
     if index == -1:
-        message += [serialize_input(tx_in) for tx_in in inputs]
+        out += [serialize_input(tx_in) for tx_in in inputs]
     else:
-        message += [serialize_input(tx_in, index == i) for i, tx_in in enumerate(inputs)]
+        # used when crafting digital signature for a specific input index
+        out += [serialize_input(tx_in, index == i) for i, tx_in in enumerate(inputs)]
 
     # outputs
-    message += [encode_varint(len(transaction["vout"]))]
-    message += [serialize_output(tx_out) for tx_out in outputs]
+    out += [encode_varint(len(transaction["vout"]))]
+    out += [serialize_output(tx_out) for tx_out in outputs]
 
     # witness
     if segwit:
         for tx_in in inputs:
-            message += [encode_varint(len(tx_in["witness"]))]
+            out += [encode_varint(len(tx_in["witness"]))]
 
             for item in tx_in["witness"]:
                 item_bytes = bytes.fromhex(item)
-                message += [encode_varint(len(item_bytes)), item_bytes]
+                out += [encode_varint(len(item_bytes)), item_bytes]
 
     # encode rest of data
-    message += [transaction["locktime"].to_bytes(4, byteorder="little")]
-    hash_type = 1
-    message += [hash_type.to_bytes(4, 'little') if index != -1 else b''] # 1 = SIGHASH_ALL
+    out += [encode_int(transaction["locktime"], 4)]    
+    out += [encode_int(SIGHASH_ALL, 4) if index != -1 else b'']
 
-    return b''.join(message)
+    return b''.join(out)
