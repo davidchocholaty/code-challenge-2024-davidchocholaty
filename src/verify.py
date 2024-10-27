@@ -55,19 +55,3 @@ def parse_der_signature_bytes(der_signature):
     hash_type = der_signature[-1]
     
     return r, s, hash_type
-
-
-def parse_der_signature(der_signature_with_hash_type):
-    # Remove the hash_type from the DER signature
-    der_signature = der_signature_with_hash_type[:-2]
-    
-    # Parse the DER signature
-    der_bytes = bytes.fromhex(der_signature)
-    r_length = der_bytes[3]
-    r = int.from_bytes(der_bytes[4:4 + r_length], 'big')
-    s_length_index = 4 + r_length + 1
-    s_length = der_bytes[s_length_index]
-    s = int.from_bytes(der_bytes[s_length_index + 1:s_length_index + 1 + s_length], 'big')
-    hash_type = der_bytes[-1]
-    
-    return r, s, hash_type

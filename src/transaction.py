@@ -3,6 +3,7 @@ import json
 
 from ecdsa import VerifyingKey, SECP256k1, BadSignatureError
 
+from src.script import Script, InvalidScriptException
 from src.serialize import serialize_transaction
 from src.utils import decode_hex, get_filename_without_extension, hash160
 from src.verify import parse_der_signature_bytes, valid_transaction_syntax
@@ -94,7 +95,6 @@ class Transaction:
         return True
 
     def valid_input(self, vin_idx, vin):
-        # TODO
         if vin.get("is_coinbase", False):
             return False
         
@@ -104,7 +104,8 @@ class Transaction:
         if scriptpubkey_type == "p2pkh":
             return self.validate_p2pkh(vin_idx, vin)
         elif scriptpubkey_type == "p2sh":
-            return self.validate_p2sh_p2wpkh(vin_idx, vin)
+            pass
+            #return self.validate_p2sh_p2wpkh(vin_idx, vin)
         elif scriptpubkey_type == "v0_p2wsh":
             pass
             #return self.validate_p2wsh(vin)
@@ -138,6 +139,11 @@ class Transaction:
         
         scriptpubkey = decode_hex(prevout.get("scriptpubkey", ""))
 
+        # Combine and verify
+        script = Script.combine_scripts(scriptsig, scriptpubkey)
+        is_valid = script.execute()
+        return is_valid
+"""
         #####################################################################
         # Extract signature and public key from scriptSig (Parse scriptSig) #
         #####################################################################
@@ -200,6 +206,9 @@ class Transaction:
         data_signed = serialize_transaction(self.json_transaction, vin_idx, int(hash_type))
         data_hash = hashlib.sha256(data_signed).digest()
 
+        print(self.json_transaction)
+        print("********************************")
+
         # Verify the signature
         verifying_key = VerifyingKey.from_string(public_key, curve=SECP256k1)
         try:
@@ -207,15 +216,18 @@ class Transaction:
         except BadSignatureError:
             return False
         
-        return True
+        return True"""
 
-    def validate_p2sh_p2wpkh(self, vin_idx, vin):
+"""
+        def validate_p2sh_p2wpkh(self, vin_idx, vin):
         # Extract scriptSig and witness
         scriptsig = decode_hex(vin.get("scriptsig", ""))
         witness = vin.get("witness", [])
 
-        if not scriptsig or len(witness) < 2:
+        if not scriptsig or len(witness) < 2:                        
             return False
+        
+        print(vin["txid"])
 
         prevout = vin.get("prevout", {})
 
@@ -295,4 +307,4 @@ class Transaction:
         except BadSignatureError:
             return False
 
-        return True
+        return True """
