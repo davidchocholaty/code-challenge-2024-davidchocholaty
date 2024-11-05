@@ -1,7 +1,7 @@
 import hashlib
 import json
 
-#from ecdsa import VerifyingKey, SECP256k1, BadSignatureError
+from ecdsa import VerifyingKey, SECP256k1, BadSignatureError
 
 from src.script import Script, InvalidScriptException
 from src.serialize import serialize_transaction
@@ -128,20 +128,19 @@ class Transaction:
         # Pubkey script #
         #################
         scriptsig = decode_hex(vin.get("scriptsig", ""))
-
         if not scriptsig:
             return False
-
         prevout = vin.get("prevout", {})
-
         if not prevout:
             return False
-        
         scriptpubkey = decode_hex(prevout.get("scriptpubkey", ""))
 
         # Combine and verify
-        script = Script.combine_scripts(scriptsig, scriptpubkey)
+        script = Script.combine_scripts(scriptsig, scriptpubkey, json_transaction=self.json_transaction)
         is_valid = script.execute()
+
+        #print(is_valid)
+
         return is_valid
 """
         #####################################################################
@@ -179,7 +178,8 @@ class Transaction:
             return False
 
         signature = r + s
-
+        #print(signature)
+        
         ######################
         # Parse scriptPubKey #
         ######################
@@ -206,8 +206,8 @@ class Transaction:
         data_signed = serialize_transaction(self.json_transaction, vin_idx, int(hash_type))
         data_hash = hashlib.sha256(data_signed).digest()
 
-        print(self.json_transaction)
-        print("********************************")
+        #print(self.json_transaction)
+        #print("********************************")
 
         # Verify the signature
         verifying_key = VerifyingKey.from_string(public_key, curve=SECP256k1)
@@ -216,8 +216,10 @@ class Transaction:
         except BadSignatureError:
             return False
         
-        return True"""
-
+        print(public_key)
+        print("-------------------")
+        return True
+"""
 """
         def validate_p2sh_p2wpkh(self, vin_idx, vin):
         # Extract scriptSig and witness

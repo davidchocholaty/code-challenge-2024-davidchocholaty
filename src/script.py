@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 from typing import List, Any, Union
+from Crypto.Hash import RIPEMD160
 import hashlib
 import ecdsa
 from src.op_codes import OP_CODES
-from Crypto.Hash import RIPEMD160
+from src.verify import parse_der_signature_bytes
+from src.serialize import serialize_transaction
 
 class InvalidScriptException(Exception):
     """Custom exception for Script execution errors"""
@@ -42,10 +44,12 @@ class Script:
         self.input_index = input_index
         
     def create_signature_hash(self, hash_type: int) -> bytes:
+        data_signed = serialize_transaction(self.transaction, self.input_index, int(hash_type))
+        return hashlib.sha256(data_signed).digest()
         """
         Create the signature hash for the transaction based on the hash type.
         This is what gets signed/verified in OP_CHECKSIG.
-        """
+        
         if not self.transaction:
             raise InvalidScriptException("No transaction context provided for signature verification")
             
@@ -97,7 +101,7 @@ class Script:
         
         # Double SHA256
         return hashlib.sha256(hashlib.sha256(serialized).digest()).digest()
-        
+        """
     def serialize_transaction(self, tx: dict) -> bytes:
         """Serialize a transaction for signing/verification"""
         result = bytearray()
@@ -177,6 +181,7 @@ class Script:
             # Script executed successfully if stack is not empty and top value is true
             if self.stack.is_empty():
                 return False
+            
             return self.stack.pop() != b'\x00'
             
         except Exception as e:
@@ -186,7 +191,7 @@ class Script:
         """Execute a single opcode and return how many bytes to advance"""
         
         # Constants
-        if op_name == 'OP_0':
+        if op_name == 'OP_0':            
             self.stack.push(b'\x00')
             return 1
         elif op_name == 'OP_1NEGATE':
@@ -202,7 +207,7 @@ class Script:
             if self.stack.is_empty():
                 self.if_stack.append(False)
             else:
-                value = self.stack.pop()
+                value = self.stack.pop()                
                 self.if_stack.append(value != b'\x00')
             return 1
         elif op_name == 'OP_NOTIF':
@@ -284,7 +289,7 @@ class Script:
             if self.stack.size() < 2:
                 raise InvalidScriptException("Stack too small for OP_EQUAL")
             a = self.stack.pop()
-            b = self.stack.pop()
+            b = self.stack.pop()            
             self.stack.push(b'\x01' if a == b else b'\x00')
             return 1
             
@@ -328,12 +333,26 @@ class Script:
         
         try:
             # Extract DER signature and hash type
-            if len(signature) < 1:
+            if len(signature) < 1:                
                 raise InvalidScriptException("Empty signature")
                 
-            der_sig = signature[:-1]  # Remove hash type byte
-            hash_type = signature[-1]
+            #der_sig = signature[:-1]  # Remove hash type byte
+            #hash_type = signature[-1]
+
+            der_sig = signature[:-1]
+            r, s, hash_type = parse_der_signature_bytes(der_sig)
+
+            der_len = len(der_sig)
+            signature_len = len(r + s) + 6
+
+            if der_len != signature_len:
+                self.stack.push(b'\x00')
+                return 1
             
+            sig = r + s
+
+            #print(pubkey)
+
             # Create verifying key from public key bytes
             try:
                 vk = ecdsa.VerifyingKey.from_string(
@@ -341,7 +360,7 @@ class Script:
                     curve=ecdsa.SECP256k1,
                     hashfunc=hashlib.sha256
                 )
-            except Exception as e:
+            except Exception as e:      
                 raise InvalidScriptException(f"Invalid public key: {str(e)}")
                 
             # Create signature hash based on hash type
@@ -349,11 +368,14 @@ class Script:
             
             # Verify the signature
             try:
-                verified = vk.verify(der_sig, sig_hash)
+                verified = vk.verify(sig, sig_hash)
             except Exception:
                 verified = False
-                
+            
             self.stack.push(b'\x01' if verified else b'\x00')
+
+            #print(verified)
+
             return 1
             
         except Exception as e:
@@ -412,7 +434,7 @@ class Script:
         return 1
 
     @staticmethod
-    def combine_scripts(*scripts: Union[bytes, 'Script']) -> 'Script':
+    def combine_scripts(*scripts: Union[bytes, 'Script'], json_transaction: dict) -> 'Script':
         """
         Combine multiple scripts into a single script.
         Accepts both bytes and Script objects.
@@ -425,5 +447,5 @@ class Script:
                 combined.extend(script)
             else:
                 raise InvalidScriptException(f"Invalid script type: {type(script)}")
-        return Script(bytes(combined))
+        return Script(bytes(combined), json_transaction)
     
