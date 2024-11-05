@@ -3,6 +3,7 @@ from typing import List, Any, Union
 import hashlib
 import ecdsa
 from src.op_codes import OP_CODES
+from Crypto.Hash import RIPEMD160
 
 class InvalidScriptException(Exception):
     """Custom exception for Script execution errors"""
@@ -301,8 +302,9 @@ class Script:
             raise InvalidScriptException("Cannot HASH160 empty stack")
         value = self.stack.pop()
         sha256 = hashlib.sha256(value).digest()
-        ripemd160 = hashlib.new('ripemd160', sha256).digest()
-        self.stack.push(ripemd160)
+        ripemd160 = RIPEMD160.new()
+        ripemd160.update(sha256)
+        self.stack.push(ripemd160.digest())
 
     def op_equalverify(self) -> None:
         """Verify top two stack items are equal"""

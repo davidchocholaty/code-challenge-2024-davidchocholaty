@@ -1,7 +1,7 @@
 import hashlib
 import json
 
-from ecdsa import VerifyingKey, SECP256k1, BadSignatureError
+#from ecdsa import VerifyingKey, SECP256k1, BadSignatureError
 
 from src.script import Script, InvalidScriptException
 from src.serialize import serialize_transaction
