@@ -105,16 +105,12 @@ class Transaction:
             return self.validate_p2pkh(vin_idx, vin)
         elif scriptpubkey_type == "p2sh":
             pass
-            #return self.validate_p2sh_p2wpkh(vin_idx, vin)
         elif scriptpubkey_type == "v0_p2wsh":
             pass
-            #return self.validate_p2wsh(vin)
         elif scriptpubkey_type == "v1_p2tr":
             pass
-            #return self.validate_p2tr(vin)
         elif scriptpubkey_type == "v0_p2wpkh":
-            pass
-            #return self.validate_p2wpkh(vin)
+            return self.validate_p2wpkh(vin)
         
         # Unknown script type.
         return False        
@@ -142,171 +138,6 @@ class Transaction:
         #print(is_valid)
 
         return is_valid
-"""
-        #####################################################################
-        # Extract signature and public key from scriptSig (Parse scriptSig) #
-        #####################################################################
-        # https://learnmeabitcoin.com/technical/script/p2pkh/
-        # Explanation: the scriptSig contains the signature and the public key (including ASM instructions).            
-        
-        signature_len = scriptsig[0] # The first byte represents the length of the DER signature (including hash type)
-        signature_w_hash_type = scriptsig[1:1+signature_len] # Extract the signature (includes the hash type at the end)
 
-        # The last byte of the signature is the hash type (e.g., SIGHASH_ALL = 0x01)
-        signature = signature_w_hash_type[:-1]
-        hash_type = signature_w_hash_type[-1]
-
-        public_key_idx = 1 + signature_len
-        public_key_len = scriptsig[public_key_idx]
-        public_key = scriptsig[public_key_idx+1:public_key_idx+1+public_key_len]
-
-        #######################
-        # Parse DER signature #
-        #######################
-        # https://bitcoin.stackexchange.com/questions/92680/what-are-the-der-signature-and-sec-format
-        # https://learnmeabitcoin.com/technical/keys/signature/
-
-        # Remove the hash_type from the DER signature
-        der_signature = signature_w_hash_type[:-1]
-
-        r, s, hash_type = parse_der_signature_bytes(der_signature)
-        
-        der_len = len(der_signature)
-        signature_len = len(r + s) + 6
-
-        if der_len != signature_len:        
-            return False
-
-        signature = r + s
-        #print(signature)
-        
-        ######################
-        # Parse scriptPubKey #
-        ######################
-        # https://learnmeabitcoin.com/technical/script/p2pkh/
-        # Explanation: the scriptPubKey contains: DUP, HASH160, public key hash (including OP_PUSHBYTES_20), EQUALVERIFY and CHECKSIG.
-
-        if scriptpubkey[0:1] != b'\x76' or scriptpubkey[1:2] != b'\xa9' or scriptpubkey[2:3] != b'\x14':
-            return False  # Not a valid P2PKH scriptPubKey (missing OP_DUP, OP_HASH160, or length mismatch)
-
-        if scriptpubkey[23:24] != b'\x88' or scriptpubkey[24:25] != b'\xac':
-            return False  # Not a valid P2PKH scriptPubKey (missing OP_EQUALVERIFY or OP_CHECKSIG)
-
-        pkh = scriptpubkey[3:23]
-
-        # Compute the public key hash (HASH160 of the public key) and compare with scriptPubKey
-        calc_pkh = hash160(public_key)
-        if calc_pkh != pkh:
-            return False  # Public key hash does not match
-
-        ############################################
-        # Verify the signature with the public key #
-        ############################################
-
-        data_signed = serialize_transaction(self.json_transaction, vin_idx, int(hash_type))
-        data_hash = hashlib.sha256(data_signed).digest()
-
-        #print(self.json_transaction)
-        #print("********************************")
-
-        # Verify the signature
-        verifying_key = VerifyingKey.from_string(public_key, curve=SECP256k1)
-        try:
-            verifying_key.verify(signature, data_hash, hashlib.sha256)
-        except BadSignatureError:
-            return False
-        
-        print(public_key)
-        print("-------------------")
-        return True
-"""
-"""
-        def validate_p2sh_p2wpkh(self, vin_idx, vin):
-        # Extract scriptSig and witness
-        scriptsig = decode_hex(vin.get("scriptsig", ""))
-        witness = vin.get("witness", [])
-
-        if not scriptsig or len(witness) < 2:                        
-            return False
-        
-        print(vin["txid"])
-
-        prevout = vin.get("prevout", {})
-
-        if not prevout:
-            return False
-
-        scriptpubkey = decode_hex(prevout.get("scriptpubkey", ""))
-
-        #############################
-        # Check if it's a P2SH script #
-        #############################
-        if len(scriptpubkey) != 23 or scriptpubkey[0:1] != b'\xa9' or scriptpubkey[-1:] != b'\x87':
-            return False  # Not a valid P2SH scriptPubKey
-
-        # Extract the redeem script hash from the scriptPubKey
-        # Extract redeem script hash from scriptPubKey
-        if scriptpubkey[0] != 0xa9:  # Check for OP_HASH160
-            return False
-        
-        length_of_hash = scriptpubkey[1]
-        if length_of_hash != 0x14:  # 20 bytes
-            return False
-
-        expected_redeem_script_hash = scriptpubkey[2:2+length_of_hash]
-
-        ###########################
-        # Extract the redeem script #
-        ###########################
-        # The redeem script is the data in the scriptSig
-        redeem_script = scriptsig
-
-        # Hash the redeem script and compare it with the expected hash in the scriptPubKey
-        redeem_script_hash = hash160(redeem_script)
-
-        #print("rsh: ", redeem_script_hash)
-        #print("ersh: ", expected_redeem_script_hash)
-
-        if redeem_script_hash != expected_redeem_script_hash:
-            return False  # Redeem script hash does not match        
-
-        ##############################
-        # Parse and execute redeem script #
-        ##############################
-        # The redeem script should be a P2WPKH script: OP_0 <20-byte-public-key-hash>
-        if len(redeem_script) != 22 or redeem_script[0:1] != b'\x00' or redeem_script[1:2] != b'\x14':
-            return False  # Not a valid P2WPKH redeem script
-
-        # Extract the public key hash from the redeem script
-        public_key_hash = redeem_script[2:]
-
-        ######################
-        # Verify the witness #
-        ######################
-        # The witness field contains:
-        #  - witness[0] = signature
-        #  - witness[1] = public key
-
-        signature = decode_hex(witness[0])
-        public_key = decode_hex(witness[1])
-
-        # Compute the public key hash (HASH160 of the public key) and compare with the public key hash in the redeem script
-        calc_pkh = hash160(public_key)
-        if calc_pkh != public_key_hash:
-            return False  # Public key hash does not match
-
-        ############################################
-        # Verify the signature with the public key #
-        ############################################
-
-        data_signed = serialize_transaction(self.json_transaction, vin_idx, 1)  # SIGHASH_ALL is typically 1
-        data_hash = hashlib.sha256(data_signed).digest()
-
-        # Verify the signature
-        verifying_key = VerifyingKey.from_string(public_key, curve=SECP256k1)
-        try:
-            verifying_key.verify(signature[:-1], data_hash, hashlib.sha256)  # Remove the last byte (hash type)
-        except BadSignatureError:
-            return False
-
-        return True """
+    def validate_p2wpkh(self, vin):
+        return False
