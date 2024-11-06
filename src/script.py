@@ -35,16 +35,17 @@ class Stack:
         return len(self._items) == 0
 
 class Script:
-    def __init__(self, script: bytes, json_transaction: dict = None, input_index: int = 0):
+    def __init__(self, script: bytes, json_transaction: dict = None, input_index: int = 0, segwit: bool = False):
         self.script = script
         self.stack = Stack()
         self.alt_stack = Stack()
         self.if_stack: List[bool] = []
         self.transaction = json_transaction  # Store JSON transaction
         self.input_index = input_index
+        self.segwit = segwit
         
     def create_signature_hash(self, hash_type: int) -> bytes:
-        data_signed = serialize_transaction(self.transaction, self.input_index, int(hash_type))
+        data_signed = serialize_transaction(self.transaction, self.input_index, int(hash_type), self.segwit)
         return hashlib.sha256(data_signed).digest()
         """
         Create the signature hash for the transaction based on the hash type.
@@ -179,7 +180,7 @@ class Script:
                 i += self._execute_opcode(op_name)
             
             # Script executed successfully if stack is not empty and top value is true
-            if self.stack.is_empty():
+            if self.stack.is_empty():                
                 return False
             
             return self.stack.pop() != b'\x00'
@@ -191,7 +192,7 @@ class Script:
         """Execute a single opcode and return how many bytes to advance"""
         
         # Constants
-        if op_name == 'OP_0':            
+        if op_name == 'OP_0':
             self.stack.push(b'\x00')
             return 1
         elif op_name == 'OP_1NEGATE':

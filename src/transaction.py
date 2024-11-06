@@ -110,7 +110,7 @@ class Transaction:
         elif scriptpubkey_type == "v1_p2tr":
             pass
         elif scriptpubkey_type == "v0_p2wpkh":
-            return self.validate_p2wpkh(vin)
+            return self.validate_p2wpkh(vin_idx, vin)
         
         # Unknown script type.
         return False        
@@ -139,5 +139,68 @@ class Transaction:
 
         return is_valid
 
-    def validate_p2wpkh(self, vin):
-        return False
+    def validate_p2wpkh(self, vin_idx, vin):
+        """
+        Validate a Pay-to-Witness-Public-Key-Hash (P2WPKH) transaction input
+        
+        Args:
+            vin_idx (int): Index of the input being validated
+            vin (dict): Input data containing witness information
+            
+        Returns:
+            bool: True if the P2WPKH input is valid, False otherwise
+        """
+        # Check for witness data
+        witness = vin.get("witness", [])
+        if len(witness) != 2:  # P2WPKH requires exactly 2 witness items (signature and pubkey)
+            return False
+            
+        # Get witness components
+        signature = bytes.fromhex(witness[0])
+        pubkey = bytes.fromhex(witness[1])
+        
+        # Get previous output's scriptPubKey
+        prevout = vin.get("prevout", {})
+        if not prevout:
+            return False
+            
+        scriptpubkey = bytes.fromhex(prevout.get("scriptpubkey", ""))
+        
+        # Verify the script is proper P2WPKH format (OP_0 <20-byte-key-hash>)
+        if len(scriptpubkey) != 22 or scriptpubkey[0] != 0x00 or scriptpubkey[1] != 0x14:
+            return False
+        
+        # Create P2PKH-style script from witness data
+        # P2WPKH witness program is executed as if it were P2PKH scriptPubKey
+        p2pkh_script = (
+            bytes([len(signature)]) +  # Push signature
+            signature +
+            bytes([len(pubkey)]) +     # Push pubkey
+            pubkey +
+            # Standard P2PKH script operations
+            bytes([
+                0x76,  # OP_DUP
+                0xa9,  # OP_HASH160
+                0x14   # Push 20 bytes
+            ]) +
+            scriptpubkey[2:22] +  # 20-byte pubkey hash from witness program
+            bytes([
+                0x88,  # OP_EQUALVERIFY
+                0xac   # OP_CHECKSIG
+            ])
+        )
+        
+        # Create script object with witness-specific transaction data
+        script = Script(
+            p2pkh_script,
+            json_transaction=self.json_transaction,
+            input_index=vin_idx,
+            segwit=True
+        )
+        
+        # Execute the script
+        try:
+            return script.execute()
+        except Exception as e:
+            print(f"P2WPKH validation error: {str(e)}")
+            return False
