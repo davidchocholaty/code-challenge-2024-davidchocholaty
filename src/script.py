@@ -430,12 +430,12 @@ class Script:
         # 3. Handle proper error cases
         
         verified = True  # Replace with actual verification
-        
+
         self.stack.push(b'\x01' if verified else b'\x00')
         return 1
 
     @staticmethod
-    def combine_scripts(*scripts: Union[bytes, 'Script'], json_transaction: dict) -> 'Script':
+    def combine_scripts(*scripts: Union[bytes, 'Script'], json_transaction: dict, segwit: bool = False) -> 'Script':
         """
         Combine multiple scripts into a single script.
         Accepts both bytes and Script objects.
@@ -448,5 +448,5 @@ class Script:
                 combined.extend(script)
             else:
                 raise InvalidScriptException(f"Invalid script type: {type(script)}")
-        return Script(bytes(combined), json_transaction)
+        return Script(bytes(combined), json_transaction, segwit=segwit)
     

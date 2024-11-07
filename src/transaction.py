@@ -2,11 +2,13 @@ import hashlib
 import json
 
 from ecdsa import VerifyingKey, SECP256k1, BadSignatureError
+from Crypto.Hash import RIPEMD160
 
 from src.script import Script, InvalidScriptException
 from src.serialize import serialize_transaction
 from src.utils import decode_hex, get_filename_without_extension, hash160
 from src.verify import parse_der_signature_bytes, valid_transaction_syntax
+
 
 def calculate_txid(transaction_content, coinbase=False):
     # Serialize the transaction content
@@ -104,13 +106,15 @@ class Transaction:
         if scriptpubkey_type == "p2pkh":
             return self.validate_p2pkh(vin_idx, vin)
         elif scriptpubkey_type == "p2sh":
+            #return self.validate_p2sh(vin_idx, vin)
             pass
         elif scriptpubkey_type == "v0_p2wsh":
             pass
         elif scriptpubkey_type == "v1_p2tr":
             pass
         elif scriptpubkey_type == "v0_p2wpkh":
-            return self.validate_p2wpkh(vin_idx, vin)
+            #return self.validate_p2wpkh(vin_idx, vin)
+            pass
         
         # Unknown script type.
         return False        
@@ -136,6 +140,49 @@ class Transaction:
         is_valid = script.execute()
 
         #print(is_valid)
+
+        return is_valid
+
+    def validate_p2sh(self, vin_idx, vin):
+        #################
+        # Pubkey script #
+        #################
+        scriptsig = decode_hex(vin.get("scriptsig", ""))
+        if not scriptsig:
+            return False
+        prevout = vin.get("prevout", {})
+        if not prevout:
+            return False
+        scriptpubkey = decode_hex(prevout.get("scriptpubkey", ""))
+
+        # Check if the scriptpubkey is a P2SH script
+        if scriptpubkey[:2] != b'\xa9\x14' or scriptpubkey[-1:] != b'\x87':
+            # Not a P2SH script, fallback to P2PKH validation
+            return self.validate_p2pkh(vin_idx, vin)
+
+        # Extract the script hash from the scriptpubkey        
+        script_hash = scriptpubkey[2:-1]
+
+        # Find the redeem script in the scriptsig
+        redeem_script_len = int.from_bytes(scriptsig[0:1], byteorder='little')
+        redeem_script = scriptsig[1:1+redeem_script_len]
+
+        # Create the combined script
+        script = Script.combine_scripts(redeem_script, json_transaction=self.json_transaction)
+
+        # Hash the redeem script and compare with the script hash
+        # Compute the HASH160 (RIPEMD-160 of SHA-256) of the redeem script
+        sha256_hash = hashlib.sha256(redeem_script).digest()
+        ripemd160 = RIPEMD160.new()
+        ripemd160.update(sha256_hash)
+        computed_script_hash = ripemd160.digest()
+
+        # Compare with the provided script hash
+        if computed_script_hash != script_hash:            
+            return False
+
+        # Execute the redeem script
+        is_valid = script.execute()
 
         return is_valid
 
@@ -200,6 +247,7 @@ class Transaction:
         
         # Execute the script
         try:
+            #return script.execute()
             return script.execute()
         except Exception as e:
             print(f"P2WPKH validation error: {str(e)}")

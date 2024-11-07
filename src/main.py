@@ -29,15 +29,16 @@ if __name__ == '__main__':
     mempool = MemPool(args.mempool)
 
     # TODO pokracovani
-
-    block_transactions = [COINBASE_TRANSACTION] + mempool.valid_transactions
     
-    transaction_hashes = [calculate_txid(COINBASE_TRANSACTION)] + [calculate_txid(json_transaction) for json_transaction in block_transactions[1:]]
+    transaction_hashes = [calculate_txid(COINBASE_TRANSACTION)] + [calculate_txid(json_transaction) for json_transaction in mempool.valid_transactions]
     block_hash = block_mining(transaction_hashes).hex()
 
-    wtxids =  ["0000000000000000000000000000000000000000000000000000000000000000"] + transaction_hashes[1:]
+    #wtxids =  ["0000000000000000000000000000000000000000000000000000000000000000"] + transaction_hashes[1:]
+    #wtxids =  ["0000000000000000000000000000000000000000000000000000000000000000"] + transaction_hashes
+    wtxids =  transaction_hashes
 
-    witness_commitment = calculate_witness_commitment(wtxids)    
+    witness_commitment = calculate_witness_commitment(wtxids)
+
     scriptpubkey_wc = '6a24aa21a9ed' + witness_commitment
 
     COINBASE_TRANSACTION["vout"][1]["scriptpubkey"] = scriptpubkey_wc
