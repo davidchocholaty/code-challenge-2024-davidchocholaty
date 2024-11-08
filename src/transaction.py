@@ -113,9 +113,10 @@ class Transaction:
         if scriptpubkey_type == "p2pkh":
             return self.validate_p2pkh(vin_idx, vin)
         elif scriptpubkey_type == "p2sh":            
-            return self.validate_p2sh(vin_idx, vin)
+            #return self.validate_p2sh(vin_idx, vin)
+            pass
         elif scriptpubkey_type == "v0_p2wsh":
-            self.has_witness = True
+            #self.has_witness = True
             pass
         elif scriptpubkey_type == "v1_p2tr":
             pass
