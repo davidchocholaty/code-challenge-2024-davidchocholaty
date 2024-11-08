@@ -1,13 +1,12 @@
 import hashlib
 import json
 
-from ecdsa import VerifyingKey, SECP256k1, BadSignatureError
 from Crypto.Hash import RIPEMD160
 
-from src.script import Script, InvalidScriptException
+from src.script import Script
 from src.serialize import serialize_transaction
 from src.utils import decode_hex, get_filename_without_extension, hash160
-from src.verify import parse_der_signature_bytes, valid_transaction_syntax
+from src.verify import valid_transaction_syntax
 
 
 def calculate_txid(transaction_content, segwit=False):

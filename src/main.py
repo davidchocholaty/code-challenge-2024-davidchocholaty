@@ -28,19 +28,10 @@ if __name__ == '__main__':
 
     mempool = MemPool(args.mempool)
 
-    # TODO pokracovani
-    
+    block_transactions = []
 
-    #block_transactions = [COINBASE_TRANSACTION] + mempool.valid_transactions
-
-    # Initialize an empty list for transactions
-    block_transactions = [COINBASE_TRANSACTION]
-
-    # Initialize total weight and total fees
     total_weight = 0
     total_fees = 0
-
-    # Set the maximum block weight
     max_block_weight = 4000000
 
     # Sort the transactions by the fee in descending order
@@ -54,7 +45,7 @@ if __name__ == '__main__':
         total_weight = total_weight + tx_weight
         total_fees = total_fees + tx.fee
 
-    transaction_hashes = [calculate_txid(COINBASE_TRANSACTION, True)] + [calculate_txid(transaction.json_transaction, transaction.has_witness) for transaction in block_transactions[1:]]
+    transaction_hashes = [calculate_txid(COINBASE_TRANSACTION, True)] + [calculate_txid(transaction.json_transaction, transaction.has_witness) for transaction in block_transactions]
     block_hash = block_mining(transaction_hashes).hex()
 
     wtxids =  ["0000000000000000000000000000000000000000000000000000000000000000"] + transaction_hashes[1:]

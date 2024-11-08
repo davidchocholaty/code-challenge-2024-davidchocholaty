@@ -46,51 +46,6 @@ class Script:
     def create_signature_hash(self, hash_type: int) -> bytes:
         data_signed = serialize_transaction(self.transaction, self.input_index, int(hash_type), self.segwit)
         return hashlib.sha256(data_signed).digest()
- 
-    def serialize_transaction(self, tx: dict) -> bytes:
-        """Serialize a transaction for signing/verification"""
-        result = bytearray()
-        
-        # Version
-        result.extend(tx['version'].to_bytes(4, 'little'))
-        
-        # Number of inputs
-        result.extend(len(tx['vin']).to_bytes(1, 'little'))
-        
-        # Inputs
-        for inp in tx['vin']:
-            # Previous transaction hash (reverse byte order)
-            prev_tx = bytes.fromhex(inp['txid'])[::-1]
-            result.extend(prev_tx)
-            
-            # Previous output index
-            result.extend(inp['vout'].to_bytes(4, 'little'))
-            
-            # Script
-            script_sig = bytes.fromhex(inp['scriptsig']) if inp['scriptsig'] else b''
-            result.extend(len(script_sig).to_bytes(1, 'little'))
-            result.extend(script_sig)
-            
-            # Sequence
-            result.extend(inp['sequence'].to_bytes(4, 'little'))
-            
-        # Number of outputs
-        result.extend(len(tx['vout']).to_bytes(1, 'little'))
-        
-        # Outputs
-        for out in tx['vout']:
-            # Amount in satoshis
-            result.extend(out['value'].to_bytes(8, 'little'))
-            
-            # Script
-            script_pubkey = bytes.fromhex(out['scriptpubkey'])
-            result.extend(len(script_pubkey).to_bytes(1, 'little'))
-            result.extend(script_pubkey)
-            
-        # Locktime
-        result.extend(tx['locktime'].to_bytes(4, 'little'))
-        
-        return bytes(result)
         
     def execute(self) -> bool:
         """Execute the script and return True if it executed successfully"""
@@ -317,4 +272,3 @@ class Script:
             else:
                 raise InvalidScriptException(f"Invalid script type: {type(script)}")
         return Script(bytes(combined), json_transaction, segwit=segwit)
-    
