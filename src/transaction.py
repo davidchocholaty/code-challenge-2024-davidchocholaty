@@ -10,12 +10,9 @@ from src.utils import decode_hex, get_filename_without_extension, hash160
 from src.verify import parse_der_signature_bytes, valid_transaction_syntax
 
 
-def calculate_txid(transaction_content, coinbase=False):
+def calculate_txid(transaction_content, segwit=False):
     # Serialize the transaction content
-    if coinbase:
-        serialized_transaction = serialize_transaction(transaction_content, segwit=True) #json.dumps(transaction_content, sort_keys=True).encode()
-    else:
-        serialized_transaction = serialize_transaction(transaction_content) #json.dumps(transaction_content, sort_keys=True).encode()
+    serialized_transaction = serialize_transaction(transaction_content, segwit=segwit)
 
     # Calculate double SHA-256 hash
     hash_result = hashlib.sha256(hashlib.sha256(serialized_transaction).digest()).digest()
@@ -39,6 +36,8 @@ class Transaction:
             self.vin = json_transaction['vin']
             self.vout = json_transaction['vout']
             self.json_transaction = json_transaction
+            self.fee = 0
+            self.has_witness = False
         else:
             # TODO jestli nejakej error
             print('Invalid transaction syntax')
@@ -90,11 +89,19 @@ class Transaction:
         for output in self.vout:
             output_sum = output_sum + output['value']
         
+        self.fee = input_sum - output_sum
+
         # Output sum can't be greater than the input sum.
         if input_sum < output_sum:
             return False
         
         return True
+
+    def calculate_weight(self):
+        base_size = len(serialize_transaction(self.json_transaction))
+        total_size = len(serialize_transaction(self.json_transaction, segwit=self.has_witness))
+
+        return int(base_size * 3 + total_size)
 
     def valid_input(self, vin_idx, vin):
         if vin.get("is_coinbase", False):
@@ -105,16 +112,18 @@ class Transaction:
 
         if scriptpubkey_type == "p2pkh":
             return self.validate_p2pkh(vin_idx, vin)
-        elif scriptpubkey_type == "p2sh":
-            #return self.validate_p2sh(vin_idx, vin)
-            pass
+        elif scriptpubkey_type == "p2sh":            
+            return self.validate_p2sh(vin_idx, vin)
         elif scriptpubkey_type == "v0_p2wsh":
+            self.has_witness = True
             pass
         elif scriptpubkey_type == "v1_p2tr":
             pass
         elif scriptpubkey_type == "v0_p2wpkh":
-            #return self.validate_p2wpkh(vin_idx, vin)
             pass
+            #self.has_witness = True
+            #return self.validate_p2wpkh(vin_idx, vin)
+            
         
         # Unknown script type.
         return False        

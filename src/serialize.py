@@ -82,6 +82,9 @@ def serialize_transaction(transaction, index=-1, sighash_type=1, segwit=False):
     # witness
     if segwit:
         for tx_in in inputs:
+            if "witness" not in tx_in:
+                break
+
             out += [encode_varint(len(tx_in["witness"]))]
 
             for item in tx_in["witness"]:
