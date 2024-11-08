@@ -328,59 +328,34 @@ class Script:
         """
         if self.stack.size() < 2:
             raise InvalidScriptException("Stack too small for CHECKSIG")
-            
         pubkey = self.stack.pop()
         signature = self.stack.pop()
-        
         try:
             # Extract DER signature and hash type
-            if len(signature) < 1:                
+            if len(signature) < 1:
                 raise InvalidScriptException("Empty signature")
-                
-            #der_sig = signature[:-1]  # Remove hash type byte
-            #hash_type = signature[-1]
-
-            der_sig = signature[:-1]
-            r, s, hash_type = parse_der_signature_bytes(der_sig)
-
-            der_len = len(der_sig)
-            signature_len = len(r + s) + 6
-
-            if der_len != signature_len:
-                self.stack.push(b'\x00')
-                return 1
-            
-            sig = r + s
-
-            #print(pubkey)
+            der_sig, hash_type = signature[:-1], signature[-1]            
 
             # Create verifying key from public key bytes
-            try:
-                vk = ecdsa.VerifyingKey.from_string(
-                    pubkey, 
-                    curve=ecdsa.SECP256k1,
-                    hashfunc=hashlib.sha256
-                )
-            except Exception as e:      
-                raise InvalidScriptException(f"Invalid public key: {str(e)}")
-                
+            vk = ecdsa.VerifyingKey.from_string(
+                pubkey,
+                curve=ecdsa.SECP256k1,
+                hashfunc=hashlib.sha256
+            )
+
             # Create signature hash based on hash type
             sig_hash = self.create_signature_hash(hash_type)
-            
+
             # Verify the signature
-            try:
-                verified = vk.verify(sig, sig_hash)
-            except Exception:
-                verified = False
-            
+            verified = vk.verify(der_sig, sig_hash, sigdecode=ecdsa.util.sigdecode_der)
             self.stack.push(b'\x01' if verified else b'\x00')
-
-            #print(verified)
-
             return 1
-            
+        except ecdsa.BadSignatureError:
+            self.stack.push(b'\x00')
+            return 1
         except Exception as e:
             self.stack.push(b'\x00')
+            print(f"Unexpected exception: {e}")
             return 1
 
     def op_checkmultisig(self) -> int:
