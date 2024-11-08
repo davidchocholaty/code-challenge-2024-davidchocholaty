@@ -44,7 +44,7 @@ class Transaction:
 
     def is_valid(self):
         # At least one input and one output.
-        if not self.non_empty_vin_vout():
+        if not self.non_empty_vin_vout():            
             return False
 
         # Basic locktime check.

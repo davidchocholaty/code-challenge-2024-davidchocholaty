@@ -46,62 +46,7 @@ class Script:
     def create_signature_hash(self, hash_type: int) -> bytes:
         data_signed = serialize_transaction(self.transaction, self.input_index, int(hash_type), self.segwit)
         return hashlib.sha256(data_signed).digest()
-        """
-        Create the signature hash for the transaction based on the hash type.
-        This is what gets signed/verified in OP_CHECKSIG.
-        
-        if not self.transaction:
-            raise InvalidScriptException("No transaction context provided for signature verification")
-            
-        # Create a copy of the transaction
-        tx_copy = self.transaction.copy()
-        
-        # Clear all input scripts
-        for inp in tx_copy['vin']:
-            inp['scriptsig'] = ''
-            
-        # Handle different hash types
-        if hash_type & 0x1F == 0x01:  # SIGHASH_ALL
-            # Most common, signs all inputs and outputs
-            # Current input gets the subscript
-            tx_copy['vin'][self.input_index]['scriptsig'] = self.script.hex()
-            
-        elif hash_type & 0x1F == 0x02:  # SIGHASH_NONE
-            # Signs all inputs, but no outputs
-            tx_copy['vout'] = []
-            # Zero out sequence numbers of other inputs
-            for i in range(len(tx_copy['vin'])):
-                if i != self.input_index:
-                    tx_copy['vin'][i]['sequence'] = 0
-                    
-        elif hash_type & 0x1F == 0x03:  # SIGHASH_SINGLE
-            # Signs all inputs and only the output with same index
-            if self.input_index >= len(tx_copy['vout']):
-                raise InvalidScriptException("SIGHASH_SINGLE invalid output index")
-            # Keep only the output at the same index
-            output = tx_copy['vout'][self.input_index]
-            tx_copy['vout'] = [{'value': -1, 'scriptpubkey': ''}] * self.input_index
-            tx_copy['vout'].append(output)
-            # Zero out sequence numbers of other inputs
-            for i in range(len(tx_copy['vin'])):
-                if i != self.input_index:
-                    tx_copy['vin'][i]['sequence'] = 0
-                    
-        if hash_type & 0x80:  # SIGHASH_ANYONECANPAY
-            # Only sign the current input
-            current_input = tx_copy['vin'][self.input_index]
-            tx_copy['vin'] = [current_input]
-            self.input_index = 0
-            
-        # Serialize the modified transaction
-        serialized = self.serialize_transaction(tx_copy)
-        
-        # Add hash type
-        serialized += hash_type.to_bytes(4, 'little')
-        
-        # Double SHA256
-        return hashlib.sha256(hashlib.sha256(serialized).digest()).digest()
-        """
+ 
     def serialize_transaction(self, tx: dict) -> bytes:
         """Serialize a transaction for signing/verification"""
         result = bytearray()
@@ -356,57 +301,6 @@ class Script:
             self.stack.push(b'\x00')
             print(f"Unexpected exception: {e}")
             return 1
-
-    def op_checkmultisig(self) -> int:
-        """
-        Verify multiple signatures against multiple public keys
-        Returns number of bytes consumed
-        """
-        if self.stack.size() < 1:
-            raise InvalidScriptException("Stack too small for CHECKMULTISIG")
-            
-        # Get number of public keys
-        n = int.from_bytes(self.stack.pop(), 'little')
-        if n < 0 or n > 20:
-            raise InvalidScriptException("Invalid number of public keys")
-            
-        if self.stack.size() < n + 1:
-            raise InvalidScriptException("Stack too small for public keys")
-            
-        # Get public keys
-        pubkeys = []
-        for _ in range(n):
-            pubkeys.append(self.stack.pop())
-            
-        # Get number of signatures
-        m = int.from_bytes(self.stack.pop(), 'little')
-        if m < 0 or m > n:
-            raise InvalidScriptException("Invalid number of signatures")
-            
-        if self.stack.size() < m:
-            raise InvalidScriptException("Stack too small for signatures")
-            
-        # Get signatures
-        signatures = []
-        for _ in range(m):
-            signatures.append(self.stack.pop())
-            
-        # Remove the extra null byte (Bitcoin protocol quirk)
-        if self.stack.size() < 1:
-            raise InvalidScriptException("No extra null byte for CHECKMULTISIG")
-        self.stack.pop()
-        
-        # TODO: Implement proper multisig verification
-        # This is a simplified version that always returns true
-        # In a real implementation, you would:
-        # 1. Verify each signature against public keys in order
-        # 2. Ensure all signatures are valid
-        # 3. Handle proper error cases
-        
-        verified = True  # Replace with actual verification
-
-        self.stack.push(b'\x01' if verified else b'\x00')
-        return 1
 
     @staticmethod
     def combine_scripts(*scripts: Union[bytes, 'Script'], json_transaction: dict, segwit: bool = False) -> 'Script':
