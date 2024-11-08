@@ -112,17 +112,13 @@ class Transaction:
 
         if scriptpubkey_type == "p2pkh":
             return self.validate_p2pkh(vin_idx, vin)
-            #pass
         elif scriptpubkey_type == "p2sh":            
-            return self.validate_p2sh(vin_idx, vin)
-            #pass
+            pass
         elif scriptpubkey_type == "v0_p2wsh":
-            #self.has_witness = True
             pass
         elif scriptpubkey_type == "v1_p2tr":
             pass
         elif scriptpubkey_type == "v0_p2wpkh":
-            #pass
             self.has_witness = True
             return self.validate_p2wpkh(vin_idx, vin)
             
@@ -231,7 +227,7 @@ class Transaction:
             return False
         
         scriptpubkey = bytes.fromhex(prevout.get("scriptpubkey", ""))
-        
+
         # Verify that the scriptPubKey matches the P2WPKH format (OP_0 <20-byte-key-hash>)
         if len(scriptpubkey) != 22 or scriptpubkey[0] != 0x00 or scriptpubkey[1] != 0x14:
             return False

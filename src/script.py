@@ -4,7 +4,6 @@ from Crypto.Hash import RIPEMD160
 import hashlib
 import ecdsa
 from src.op_codes import OP_CODES
-from src.verify import parse_der_signature_bytes
 from src.serialize import serialize_transaction
 
 class InvalidScriptException(Exception):
