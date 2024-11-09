@@ -13,6 +13,7 @@ from src.mempool import MemPool
 from src.mining import calculate_witness_commitment, block_mining
 from src.serialize import serialize_transaction
 from src.transaction import calculate_txid
+from src.utils import double_spending
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Simulation of the mining process of a block')
@@ -28,11 +29,30 @@ if __name__ == '__main__':
 
     mempool = MemPool(args.mempool)
 
-    # TODO pokracovani
+    # Check double spending
+    non_double_spend = []
+    non_double_spend = [tx for i, tx in enumerate(mempool.valid_transactions) if not double_spending(non_double_spend[:i], tx)]
 
-    block_transactions = [COINBASE_TRANSACTION] + mempool.valid_transactions
-    
-    transaction_hashes = [calculate_txid(COINBASE_TRANSACTION)] + [calculate_txid(json_transaction) for json_transaction in block_transactions[1:]]
+    mempool.valid_transactions = non_double_spend
+
+    block_transactions = []
+
+    total_weight = 0
+    total_fees = 0
+    max_block_weight = 4000000
+
+    # Sort the transactions by the fee in descending order
+    transactions_sorted_by_fee = sorted(mempool.valid_transactions, key=lambda tx: tx.fee, reverse=True)
+
+    for tx in transactions_sorted_by_fee:
+        tx_weight = tx.calculate_weight()
+        if total_weight + tx_weight > max_block_weight:
+            break
+        block_transactions.append(tx)
+        total_weight = total_weight + tx_weight
+        total_fees = total_fees + tx.fee
+
+    transaction_hashes = [calculate_txid(COINBASE_TRANSACTION, True)] + [calculate_txid(transaction.json_transaction, transaction.has_witness) for transaction in block_transactions]
     block_hash = block_mining(transaction_hashes).hex()
 
     wtxids =  ["0000000000000000000000000000000000000000000000000000000000000000"] + transaction_hashes[1:]

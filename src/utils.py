@@ -22,3 +22,12 @@ def hash160(data):
     ripemd160.update(sha256_hash)
     
     return ripemd160.digest()
+
+def double_spending(valid_transactions, checked_transaction):
+    for tx in valid_transactions:
+        for vin in tx["vin"]:
+            for vin_checked in checked_transaction["vin"]:
+                if vin["txid"] == vin_checked["txid"] and vin["vout"] == vin_checked["vout"]:
+                    return True
+
+    return False
