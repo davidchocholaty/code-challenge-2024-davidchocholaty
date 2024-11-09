@@ -1,5 +1,4 @@
-from dataclasses import dataclass
-from typing import List, Any, Union
+from typing import List, Union
 from Crypto.Hash import RIPEMD160
 import hashlib
 import ecdsa

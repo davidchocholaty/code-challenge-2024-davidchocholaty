@@ -5,7 +5,7 @@ from Crypto.Hash import RIPEMD160
 
 from src.script import Script
 from src.serialize import serialize_transaction
-from src.utils import decode_hex, get_filename_without_extension, hash160
+from src.utils import decode_hex, get_filename_without_extension, double_spending
 from src.verify import valid_transaction_syntax
 
 

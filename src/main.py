@@ -13,6 +13,7 @@ from src.mempool import MemPool
 from src.mining import calculate_witness_commitment, block_mining
 from src.serialize import serialize_transaction
 from src.transaction import calculate_txid
+from src.utils import double_spending
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Simulation of the mining process of a block')
@@ -27,6 +28,12 @@ if __name__ == '__main__':
         pass
 
     mempool = MemPool(args.mempool)
+
+    # Check double spending
+    non_double_spend = []
+    non_double_spend = [tx for i, tx in enumerate(mempool.valid_transactions) if not double_spending(non_double_spend[:i], tx)]
+
+    mempool.valid_transactions = non_double_spend
 
     block_transactions = []
 
