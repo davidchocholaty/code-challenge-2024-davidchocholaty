@@ -1,3 +1,4 @@
+import re
 from src.constants import SIGHASH_ALL
 
 # The code in this file is inpired from the following source:
@@ -6,6 +7,9 @@ from src.constants import SIGHASH_ALL
 def serialize_input(tx_input, override=None):
     serialized_input = []
     serialized_input += [bytes.fromhex(tx_input["txid"])[::-1]]  # Reversed txid
+
+    #hex_string = b''.join(serialized_input).hex()
+    #print("serialized: ", [int(hex_string[i:i+2], 16) for i in range(0, len(hex_string), 2)])
     serialized_input += [encode_int(tx_input["vout"], 4)]
 
     if override is None:
@@ -56,43 +60,44 @@ def encode_varint(i):
         raise ValueError("integer too large: %d" % (i, ))
 
 def serialize_transaction(transaction, index=-1, sighash_type=1, segwit=False):
-    # for now for p2pkh
     out = []
     out += [encode_int(transaction["version"], 4)]
 
-    if segwit:
-        out += [b'\x00\x01'] # segwit marker
+    # Check if the transaction has witness data
+    has_witness = segwit and any("witness" in tx_in and tx_in["witness"] for tx_in in transaction["vin"])
+    if has_witness:
+        out += [b'\x00\x01']  # SegWit marker and flag
 
-    # inputs
+    # Inputs
     out += [encode_varint(len(transaction["vin"]))]
-
     inputs = transaction["vin"]
     outputs = transaction["vout"]
 
     if index == -1:
         out += [serialize_input(tx_in) for tx_in in inputs]
     else:
-        # used when crafting digital signature for a specific input index
         out += [serialize_input(tx_in, index == i) for i, tx_in in enumerate(inputs)]
 
-    # outputs
-    out += [encode_varint(len(transaction["vout"]))]
+    # Outputs
+    out += [encode_varint(len(outputs))]
     out += [serialize_output(tx_out) for tx_out in outputs]
 
-    # witness
-    if segwit:
+    # Witness data (only if SegWit is enabled and applicable)
+    if has_witness:
         for tx_in in inputs:
-            if "witness" not in tx_in:
-                break
+            if "witness" in tx_in and tx_in["witness"]:
+                out += [encode_varint(len(tx_in["witness"]))]
+                for item in tx_in["witness"]:
+                    item_bytes = bytes.fromhex(item)
+                    out += [encode_varint(len(item_bytes)), item_bytes]
+            else:
+                out += [b'\x00']  # Explicitly encode an empty witness stack
 
-            out += [encode_varint(len(tx_in["witness"]))]
+    # Locktime
+    out += [encode_int(transaction["locktime"], 4)]
 
-            for item in tx_in["witness"]:
-                item_bytes = bytes.fromhex(item)
-                out += [encode_varint(len(item_bytes)), item_bytes]
-
-    # encode rest of data
-    out += [encode_int(transaction["locktime"], 4)]    
-    out += [encode_int(SIGHASH_ALL, 4) if index != -1 else b'']
+    # Append sighash type if signing a specific input
+    if index != -1:
+        out += [encode_int(sighash_type, 4)]
 
     return b''.join(out)

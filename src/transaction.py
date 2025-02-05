@@ -13,6 +13,9 @@ def calculate_txid(transaction_content, segwit=False):
     # Serialize the transaction content
     serialized_transaction = serialize_transaction(transaction_content, segwit=segwit)
 
+    hex_string = serialized_transaction.hex()
+    print("serialized: ", [int(hex_string[i:i+2], 16) for i in range(0, len(hex_string), 2)])
+
     # Calculate double SHA-256 hash
     hash_result = hashlib.sha256(hashlib.sha256(serialized_transaction).digest()).digest()
 
@@ -90,11 +93,12 @@ class Transaction:
         
         self.fee = input_sum - output_sum
 
-        # Output sum can't be greater than the input sum.
-        if input_sum < output_sum:
-            return False
+        #if input_sum <= output_sum:
+        #    return False
         
-        return True
+        #return True
+        #return input_sum - output_sum >= 1000
+        return input_sum - output_sum
 
     def calculate_weight(self):
         base_size = len(serialize_transaction(self.json_transaction))
@@ -110,16 +114,21 @@ class Transaction:
         scriptpubkey_type = prevout.get("scriptpubkey_type", "")
 
         if scriptpubkey_type == "p2pkh":
-            return self.validate_p2pkh(vin_idx, vin)
+            # return self.validate_p2pkh(vin_idx, vin)
+            return False
         elif scriptpubkey_type == "p2sh":            
-            pass
+            # pass
+            return False
         elif scriptpubkey_type == "v0_p2wsh":
-            pass
+            # pass
+            return False
         elif scriptpubkey_type == "v1_p2tr":
-            pass
+            # pass
+            return False
         elif scriptpubkey_type == "v0_p2wpkh":
-            self.has_witness = True
+            #self.has_witness = True
             return self.validate_p2wpkh(vin_idx, vin)
+            # return False
             
         
         # Unknown script type.
@@ -142,13 +151,14 @@ class Transaction:
         scriptpubkey = decode_hex(prevout.get("scriptpubkey", ""))
 
         # Combine and verify
-        script = Script.combine_scripts(scriptsig, scriptpubkey, json_transaction=self.json_transaction)
+        script = Script.combine_scripts(scriptsig, scriptpubkey, json_transaction=self.json_transaction, input_index=vin_idx)
         is_valid = script.execute()
 
         #print(is_valid)
 
         return is_valid
 
+    """
     def validate_p2sh(self, vin_idx, vin):
         #################
         # Pubkey script #
@@ -191,7 +201,7 @@ class Transaction:
         is_valid = script.execute()
 
         return is_valid
-
+    """
     def validate_p2wpkh(self, vin_idx, vin):
         """
         Validate a Pay-to-Witness-Public-Key-Hash (P2WPKH) transaction input
@@ -231,6 +241,9 @@ class Transaction:
         if len(scriptpubkey) != 22 or scriptpubkey[0] != 0x00 or scriptpubkey[1] != 0x14:
             return False
         
+        # print(f"signature: {signature}")
+        # print(f"pubkey: {pubkey}")
+
         # Create the equivalent P2PKH scriptPubKey from the witness data
         p2pkh_script = (
             bytes([len(signature)]) +  # Push the signature
@@ -259,7 +272,11 @@ class Transaction:
         
         # Execute the script and catch any errors during the process
         try:
-            return script.execute()
+            result = script.execute()
+            print(result)   
+            print("-------------------------")         
+            return result
+            # return script.execute()
         except Exception as e:
             print(f"P2WPKH validation error: {str(e)}")
             return False
