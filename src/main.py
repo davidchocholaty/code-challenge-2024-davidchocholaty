@@ -68,3 +68,4 @@ if __name__ == '__main__':
     print(coinbase_serialized.hex())
     for transaction in transaction_hashes:
         print(transaction)
+
