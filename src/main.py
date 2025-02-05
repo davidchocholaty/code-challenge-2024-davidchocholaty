@@ -24,8 +24,8 @@ if __name__ == '__main__':
     args = parse_arguments()
 
     if args.mempool is None:
-        # TODO error
-        pass
+        print("Error: mempool is not provided")
+        exit(1)
 
     mempool = MemPool(args.mempool)
 

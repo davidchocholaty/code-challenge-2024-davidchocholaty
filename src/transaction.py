@@ -5,7 +5,7 @@ from Crypto.Hash import RIPEMD160
 
 from src.script import Script
 from src.serialize import serialize_transaction
-from src.utils import decode_hex, get_filename_without_extension, double_spending
+from src.utils import decode_hex, get_filename_without_extension
 from src.verify import valid_transaction_syntax
 
 
@@ -41,7 +41,6 @@ class Transaction:
             self.fee = 0
             self.has_witness = False
         else:
-            # TODO jestli nejakej error
             print('Invalid transaction syntax')
 
     def is_valid(self):
@@ -92,12 +91,7 @@ class Transaction:
             output_sum = output_sum + output['value']
         
         self.fee = input_sum - output_sum
-
-        #if input_sum <= output_sum:
-        #    return False
         
-        #return True
-        #return input_sum - output_sum >= 1000
         return input_sum - output_sum
 
     def calculate_weight(self):
@@ -114,8 +108,7 @@ class Transaction:
         scriptpubkey_type = prevout.get("scriptpubkey_type", "")
 
         if scriptpubkey_type == "p2pkh":
-            # return self.validate_p2pkh(vin_idx, vin)
-            return False
+            return self.validate_p2pkh(vin_idx, vin)
         elif scriptpubkey_type == "p2sh":            
             # pass
             return False
@@ -126,11 +119,10 @@ class Transaction:
             # pass
             return False
         elif scriptpubkey_type == "v0_p2wpkh":
-            #self.has_witness = True
+            self.has_witness = True
             return self.validate_p2wpkh(vin_idx, vin)
             # return False
             
-        
         # Unknown script type.
         return False        
 
@@ -153,8 +145,6 @@ class Transaction:
         # Combine and verify
         script = Script.combine_scripts(scriptsig, scriptpubkey, json_transaction=self.json_transaction, input_index=vin_idx)
         is_valid = script.execute()
-
-        #print(is_valid)
 
         return is_valid
 
@@ -203,16 +193,6 @@ class Transaction:
         return is_valid
     """
     def validate_p2wpkh(self, vin_idx, vin):
-        """
-        Validate a Pay-to-Witness-Public-Key-Hash (P2WPKH) transaction input
-        
-        Args:
-            vin_idx (int): Index of the input being validated
-            vin (dict): Input data containing witness information
-            
-        Returns:
-            bool: True if the P2WPKH input is valid, False otherwise
-        """
         # Check for witness data (P2WPKH requires exactly 2 items: signature and pubkey)
         witness = vin.get("witness", [])
         if len(witness) != 2:
@@ -272,11 +252,7 @@ class Transaction:
         
         # Execute the script and catch any errors during the process
         try:
-            result = script.execute()
-            print(result)   
-            print("-------------------------")         
-            return result
-            # return script.execute()
+            return script.execute()
         except Exception as e:
             print(f"P2WPKH validation error: {str(e)}")
             return False

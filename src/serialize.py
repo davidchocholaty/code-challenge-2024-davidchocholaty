@@ -1,4 +1,3 @@
-import re
 from src.constants import SIGHASH_ALL
 
 # The code in this file is inpired from the following source:
